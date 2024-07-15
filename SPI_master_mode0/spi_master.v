@@ -20,7 +20,9 @@
 module spi_master
     #(
 	  parameter CLK_DIV_CNT_VALUE = 2,
-	  parameter DATA_WIDTH = 8
+	             DATA_WIDTH = 8,
+	             TX_ORDER = "BIG_EDIAN",
+	             RX_ORDER = "LITTLE_EDIAN"
 	 )
 	(
 	 input      				    sys_clk,
@@ -195,24 +197,53 @@ end
 	end 
 	
 
+	
+   generate
+      if ( TX_ORDER == "BIG_EDIAN") begin: tx_big_endian
+           always@(posedge spi_neg_clk or negedge rst_n )begin	
+            if(!rst_n)
+                spi_mosi <= 1'b0;
+            else if(c_state == TRANS)
+                spi_mosi <= spi_data[DATA_WIDTH - trans_cnt -1] ;
+            else
+                spi_mosi <= 1'b0;
+            end 
+      end 
+     else
+      begin: tx_little_endian
+            always@(posedge spi_neg_clk or negedge rst_n )begin	
+            if(!rst_n)
+                spi_mosi <= 1'b0;
+            else if(c_state == TRANS)
+                spi_mosi <= spi_data[trans_cnt] ;
+            else
+                spi_mosi <= 1'b0;
+            end 
+         
+      end
+   endgenerate
+			
+	
+   generate
+      if (RX_ORDER == "BIG_EDIAN") begin: rx_big_endian
+           always@(posedge spi_clk or negedge rst_n )begin	
+            if(!rst_n)
+                data_recv <= {log2(DATA_WIDTH){1'b0}};
+            else if(c_state == TRANS)
+                data_recv <= {spi_miso,data_recv[DATA_WIDTH-1:1]};
+           end 
+      end 
+      else begin: rx_little_endian
+           always@(posedge spi_clk or negedge rst_n )begin	
+            if(!rst_n)
+                data_recv <= {log2(DATA_WIDTH){1'b0}};
+            else if(c_state == TRANS)
+                data_recv <= {data_recv[DATA_WIDTH-2:0],spi_miso};
+           end 
+      end
+   endgenerate
+	
 		
-	always@(posedge spi_neg_clk or negedge rst_n )begin	
-		if(!rst_n)
-			spi_mosi <= 1'b0;
-		else if(c_state == TRANS)
-		    spi_mosi <= spi_data[DATA_WIDTH - trans_cnt -1] ;
-		else
-			spi_mosi <= 1'b0;
-	end 
-	
-	
-	always@(posedge spi_clk or negedge rst_n )begin	
-		if(!rst_n)
-			data_recv <= {log2(DATA_WIDTH){1'b0}};
-		else if(c_state == TRANS)
-		    data_recv <= {spi_miso,data_recv[DATA_WIDTH-1:1]};
-	end 
-	
 	
 	always@(posedge sys_clk or negedge rst_n )begin	
 		if(!rst_n)
